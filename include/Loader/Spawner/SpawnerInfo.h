@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Unreal/AActor.hpp"  // GCC: AActor muss vor Nutzung vollstaendig bekannt sein
 #include "Unreal/NameTypes.hpp"
 #include "Unreal/UnrealCoreStructs.hpp"
 #include "Unreal/Rotator.hpp"

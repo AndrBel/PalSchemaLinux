@@ -1,3 +1,4 @@
+#include "Utility/LinuxFormat.h"
 #include "Loader/PalResourceLoader.h"
 #include "Unreal/FString.hpp"
 #include "Unreal/NameTypes.hpp"
@@ -31,7 +32,7 @@ namespace Palworld {
         LoadImages(modName, loaderPath);
     }
 
-    void PalResourceLoader::OnAutoReload(const std::filesystem::path::string_type& modName, const std::filesystem::path& modFilePath)
+    void PalResourceLoader::OnAutoReload(const RC::StringType& modName, const std::filesystem::path& modFilePath)
     {
         UnregisterResourceAssetByFilePath(modName, modFilePath);
         LoadImage(modName, modFilePath);
@@ -52,7 +53,7 @@ namespace Palworld {
         return true;
     }
 
-    void PalResourceLoader::RegisterResourceAsset(const std::filesystem::path::string_type& modName, RC::Unreal::UObject* resource)
+    void PalResourceLoader::RegisterResourceAsset(const RC::StringType& modName, RC::Unreal::UObject* resource)
     {
         auto modResourcesIt = m_loadedResourcesMap.find(modName);
         if (modResourcesIt != m_loadedResourcesMap.end())
@@ -72,12 +73,12 @@ namespace Palworld {
     {
         // We have to rename here, because CollectGarbage happens at the end of a frame and from testing, it happens after we add a new resource -
         // which isn't quick enough. You're not allowed to rename an asset to something that already exists, otherwise UE will crash.
-        auto tempName = std::format(TEXT("{}-Temp"), resource->GetFullName());
+        auto tempName = PS::Format("{}-Temp", resource->GetFullName());
         resource->Rename(tempName.c_str());
         resource->ClearRootSet();
     }
 
-    void PalResourceLoader::UnregisterResourceAssetByFilePath(const std::filesystem::path::string_type& modName, const std::filesystem::path& modFilePath)
+    void PalResourceLoader::UnregisterResourceAssetByFilePath(const RC::StringType& modName, const std::filesystem::path& modFilePath)
     {
         auto loadedResourcesIt = m_loadedResourcesMap.find(modName);
         if (loadedResourcesIt == m_loadedResourcesMap.end())
@@ -85,7 +86,7 @@ namespace Palworld {
             return;
         }
 
-        auto fileName = modFilePath.stem().native();
+        auto fileName = RC::to_wstring(modFilePath.stem().string()); // Linux: native() ist std::string
 
         auto& loadedResources = loadedResourcesIt->second;
         std::erase_if(loadedResources, [&](RC::Unreal::UObject* loadedResource) {
@@ -103,7 +104,7 @@ namespace Palworld {
         UECustom::UKismetSystemLibrary::CollectGarbage();
     }
 
-    void PalResourceLoader::UnregisterResourceAssets(const std::filesystem::path::string_type& modName)
+    void PalResourceLoader::UnregisterResourceAssets(const RC::StringType& modName)
     {
         auto loadedResourcesIt = m_loadedResourcesMap.find(modName);
         if (loadedResourcesIt != m_loadedResourcesMap.end())
@@ -135,7 +136,7 @@ namespace Palworld {
         UECustom::UKismetSystemLibrary::CollectGarbage();
     }
 
-    void PalResourceLoader::LoadImages(const std::filesystem::path::string_type& modName, const std::filesystem::path& resourcesPath)
+    void PalResourceLoader::LoadImages(const RC::StringType& modName, const std::filesystem::path& resourcesPath)
     {
         auto imagesPath = resourcesPath / "images";
         if (!fs::is_directory(imagesPath))
@@ -156,7 +157,7 @@ namespace Palworld {
         }
     }
 
-    void PalResourceLoader::LoadImage(const std::filesystem::path::string_type& modName, const std::filesystem::path& imagePath)
+    void PalResourceLoader::LoadImage(const RC::StringType& modName, const std::filesystem::path& imagePath)
     {
         // More formats are supported by UE, but we should stick to the commonly used ones.
         const std::set<std::string> supportedExtensions = { ".png", ".jpg", ".jpeg", ".bmp", ".tga" };
@@ -172,12 +173,12 @@ namespace Palworld {
             return;
         }
 
-        auto imageName = imagePath.stem().native();
+        auto imageName = RC::to_wstring(imagePath.stem().string()); // Linux: native() ist std::string
 
-        auto newTexture = UECustom::UKismetRenderingLibrary::ImportFileAsTexture2D(nullptr, FString(imagePath.c_str()));
+        auto newTexture = UECustom::UKismetRenderingLibrary::ImportFileAsTexture2D(nullptr, FString(RC::to_wstring(imagePath.string()).c_str()));
         newTexture->SetRootSet();
 
-        auto packagePath = std::format(TEXT("PalSchema/Resources/{}/{}"), modName, imageName);
+        auto packagePath = PS::Format("PalSchema/Resources/{}/{}", modName, imageName);
         newTexture->Rename(packagePath.c_str()); // becomes "/Engine/Transient.PalSchema/Resources/modname/resourcename"
 
         RegisterResourceAsset(modName, newTexture);

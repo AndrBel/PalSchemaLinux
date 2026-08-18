@@ -1,3 +1,4 @@
+#include "Utility/LinuxFormat.h"
 #include "Unreal/CoreUObject/UObject/Class.hpp"
 #include "Unreal/UObject.hpp"
 #include "Unreal/UObjectGlobals.hpp"
@@ -65,6 +66,7 @@ namespace Palworld {
 
             m_skinIconTable = GetDatatableByName("DT_PalCharacterIconDataTable_SkinOverride");
             m_skinTranslationTable = GetDatatableByName("DT_UI_Common_Text");
+            if (HasDatatableLookupFailed()) return false;
         }
         catch (const std::exception& e)
         {
@@ -244,7 +246,7 @@ namespace Palworld {
 
 	void PalSkinModLoader::AddTranslation(const RC::Unreal::FName& SkinId, const nlohmann::json& Data)
 	{
-		auto FixedSkinId = std::format(STR("SKIN_NAME_{}"), SkinId.ToString());
+		auto FixedSkinId = PS::Format("SKIN_NAME_{}", SkinId.ToString());
 		auto TranslationRowStruct = m_skinTranslationTable->GetRowStruct().Get();
 
         auto TextProperty = PropertyHelper::GetPropertyByName(TranslationRowStruct, STR("TextData"));
@@ -266,7 +268,7 @@ namespace Palworld {
 
 	void PalSkinModLoader::EditTranslation(const RC::Unreal::FName& SkinId, const nlohmann::json& Data)
 	{
-		auto FixedSkinId = std::format(STR("SKIN_NAME_{}"), SkinId.ToString());
+		auto FixedSkinId = PS::Format("SKIN_NAME_{}", SkinId.ToString());
 		auto TranslationRowStruct = m_skinTranslationTable->GetRowStruct().Get();
 
         auto TextProperty = PropertyHelper::GetPropertyByName(TranslationRowStruct, STR("TextData"));

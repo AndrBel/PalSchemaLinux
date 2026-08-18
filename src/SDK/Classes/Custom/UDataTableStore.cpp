@@ -50,9 +50,14 @@ namespace UECustom {
         if (datatable->GetClassPrivate() == UECustom::UCompositeDataTable::StaticClass())
         {
             auto compositeDatatable = static_cast<UECustom::UCompositeDataTable*>(datatable);
-            for (auto& parentTable : compositeDatatable->GetParentTables())
+            if (auto* parentTables = compositeDatatable->GetParentTables())
             {
-                m_parentTableNameToCompositeDatatableMap.emplace(RC::to_string(parentTable->GetName()), compositeDatatable);
+                for (auto& parentTable : *parentTables)
+                {
+                    auto* parentPtr = parentTable.Get();
+                    if (!parentPtr) continue;
+                    m_parentTableNameToCompositeDatatableMap.emplace(RC::to_string(parentPtr->GetName()), compositeDatatable);
+                }
             }
         }
 

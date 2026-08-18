@@ -1,3 +1,4 @@
+#include "Utility/LinuxFormat.h"
 #include "Mod/CppUserModBase.hpp"
 #include "UE4SSProgram.hpp"
 #include "Loader/PalMainLoader.h"
@@ -9,6 +10,24 @@
 #include "SDK/UnrealOffsets.h"
 #include "../version.h"
 
+#ifdef PS_HEADLESS_NO_GUI
+// Linux-Serverbuild: UE4SS wird mit UE4SS_GUI_ENABLED=OFF gebaut, ImGui ist
+// nicht vorhanden. Der betroffene Code ist reines Entwickler-UI (Schema-
+// Generator-Tab) und auf einem Dedicated Server ohne Funktion. Statt ihn
+// herauszuschneiden, genuegen wirkungslose Attrappen.
+struct ImVec2 { float x{}, y{}; ImVec2() = default; ImVec2(float a, float b) : x(a), y(b) {} };
+namespace ImGui {
+    inline bool Button(const char*) { return false; }
+    inline void ProgressBar(float, const ImVec2&, const char*) {}
+    inline void SeparatorText(const char*) {}
+    inline double GetTime() { return 0.0; }
+}
+#ifndef UE4SS_ENABLE_IMGUI
+#define UE4SS_ENABLE_IMGUI()
+#endif
+#endif
+
+
 using namespace RC;
 using namespace RC::Unreal;
 
@@ -17,7 +36,7 @@ class PalSchema : public RC::CppUserModBase
 public:
     PalSchema() : CppUserModBase()
     {
-        auto Version = std::format(STR("{}.{}.{}"), VERSION_MAJOR, VERSION_MINOR, VERSION_REVISION);
+        auto Version = PS::Format("{}.{}.{}", VERSION_MAJOR, VERSION_MINOR, VERSION_REVISION);
 
         ModName = STR("PalSchema");
         ModVersion = Version;
@@ -79,6 +98,10 @@ public:
 
     auto on_ui_init() -> void override
     {
+#ifdef PS_HEADLESS_NO_GUI
+        // register_tab existiert nur im GUI-Build von UE4SS.
+        return;
+#else
         register_tab(STR("Pal Schema"), [](CppUserModBase* instance) {
             UE4SS_ENABLE_IMGUI()
 
@@ -93,6 +116,7 @@ public:
         });
 
         PS::Log<LogLevel::Verbose>(STR("Finished registering Pal Schema tab for GUI Console.\n"));
+#endif
     }
 
     auto on_update() -> void override
@@ -112,7 +136,7 @@ private:
 };
 
 
-#define PALSCHEMA_API __declspec(dllexport)
+#define PALSCHEMA_API __attribute__((visibility("default")))
 extern "C"
 {
     PALSCHEMA_API RC::CppUserModBase* start_mod()

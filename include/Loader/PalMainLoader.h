@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Utility/LinuxCompat.h"
 #include <vector>
 #include <functional>
 #include "Loader/PalResourceLoader.h"
@@ -47,9 +48,26 @@ namespace Palworld {
 
         void SetupGameInstanceInitLoaders();
 
+        // Fuehrt SetupGameInstanceInitLoaders() genau einmal aus, egal welcher
+        // Einstiegspunkt zuerst zieht (InitGameState-Hook oder UEngine::Tick).
+        void RunGameInstanceInitLoadersOnce();
+
         void HookDatatableSerialize();
 
+#ifdef __linux__
+        // Linux: UE4SS' C++-Mods starten erst nach UnrealInit, da sind die
+        // DataTables laengst serialisiert — der Serialize-Hook feuert nie.
+        // Deshalb die bereits geladenen Tabellen aktiv einsammeln.
+        void ScanExistingDataTables();
+#endif
+
         void HookGameInstanceInit();
+
+        // Linux: eigentlicher Einstiegspunkt fuer die GameInstanceInit-Loader.
+        // UPalGameInstance::Init laeuft hier, BEVOR UE4SS seine C++-Mods startet;
+        // AGameModeBase::InitGameState dagegen erst beim Map-Load danach -- und
+        // zwar auf dem Game Thread.
+        void HookInitGameState();
 
         void CreateLoaders();
 
@@ -75,14 +93,19 @@ namespace Palworld {
 
         static void OnGameInstanceInit(RC::Unreal::UObject* This);
 
+        static void OnInitGameState(RC::Unreal::UObject* This);
+
         bool m_hasInit = false;
+        bool m_gameInstanceLoadersRan = false;
 
         static inline std::vector<std::function<void(RC::Unreal::UDataTable*)>> DatatableSerializeCallbacks;
         static inline std::vector<std::function<void(RC::Unreal::UObject*)>> GameInstanceInitCallbacks;
+        static inline std::vector<std::function<void(RC::Unreal::UObject*)>> InitGameStateCallbacks;
         static inline std::vector<std::function<void()>> GetPakFoldersCallback;
 
         static inline SafetyHookInline DatatableSerialize_Hook;
         static inline SafetyHookInline GameInstanceInit_Hook;
+        static inline SafetyHookInline InitGameState_Hook;
         static inline SafetyHookInline GetPakFolders_Hook;
 	};
 }

@@ -67,7 +67,7 @@ namespace PS {
 
     std::filesystem::path PSConfig::GetConfigPath()
     {
-        static auto path = fs::path(UE4SSProgram::get_program().get_working_directory()) / "Mods" / "PalSchema" / "config";
+        static auto path = fs::path(RC::UE4SSProgram::get_program().get_working_directory()) / "Mods" / "PalSchema" / "config";
         return path;
     }
 

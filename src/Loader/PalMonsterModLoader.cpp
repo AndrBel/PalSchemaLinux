@@ -1,3 +1,4 @@
+#include "Utility/LinuxFormat.h"
 #include "Unreal/CoreUObject/UObject/UnrealType.hpp"
 #include "Unreal/Property/FEnumProperty.hpp"
 #include "Unreal/Engine/UDataTable.hpp"
@@ -67,15 +68,22 @@ namespace Palworld {
             m_palShortDescTable = GetDatatableByName("DT_PalShortDescriptionText");
             m_palLongDescTable = GetDatatableByName("DT_PalLongDescriptionText");
 
+            if (HasDatatableLookupFailed()) return false;
+            PS::Log<LogLevel::Normal>(STR("Pal Loader: datatables resolved, loading BP_Action_SpawnItemBase ..."));
+
             auto assetPath = TEXT("/Game/Pal/Blueprint/Action/Common/SpawnItem/Base/BP_Action_SpawnItemBase.BP_Action_SpawnItemBase_C");
             auto softObjectPtr = UECustom::TSoftObjectPtr<UObject>(UECustom::FSoftObjectPath(assetPath));
             auto loadedAsset = static_cast<UClass*>(UECustom::UKismetSystemLibrary::LoadAsset_Blocking(softObjectPtr));
             if (!loadedAsset)
             {
-                throw std::runtime_error(RC::fmt("Asset '%S' was invalid, unable to setup ranch suitabilities.", assetPath));
+                // Kein throw: siehe PalModLoaderBase.h -- Exceptions sind in diesem
+                // Prozess toedlich.
+                PS::Log<LogLevel::Error>(STR("Asset '{}' was invalid, unable to setup ranch suitabilities."), assetPath);
+                return false;
             }
             loadedAsset->SetRootSet();
             m_spawnItemBaseClass = loadedAsset;
+            PS::Log<LogLevel::Normal>(STR("Pal Loader: BP_Action_SpawnItemBase loaded."));
         }
         catch (const std::exception& e)
         {
@@ -95,8 +103,8 @@ namespace Palworld {
             return nullptr;
         }
 
-        auto newPackageName = FName(std::format(TEXT("/PalSchema/SpawnItem/BP_Action_SpawnItem_{}"), characterId.ToString()));
-        auto newAssetName = FName(std::format(TEXT("BP_Action_SpawnItem_{}_C"), characterId.ToString()));
+        auto newPackageName = FName(PS::Format("/PalSchema/SpawnItem/BP_Action_SpawnItem_{}", characterId.ToString()));
+        auto newAssetName = FName(PS::Format("BP_Action_SpawnItem_{}_C", characterId.ToString()));
 
         if (auto cachedSpawnItemActionClass = m_cachedSpawnItemActionsByName.Find(newAssetName))
         {
@@ -364,7 +372,7 @@ namespace Palworld {
 			}
 
 			auto NewRow = reinterpret_cast<RC::Unreal::FTableRowBase*>(WazaMasterLevelData);
-			auto NewRowName = std::format(STR("{}{}"), CharacterId.ToString(), Level);
+			auto NewRowName = PS::Format("{}{}", CharacterId.ToString(), Level);
 
 			m_wazaMasterLevelTable->AddRow(FName(NewRowName, FNAME_Add), *NewRow);
 		}
@@ -440,28 +448,28 @@ namespace Palworld {
 				continue;
 			}
 
-			auto ItemIdWithSuffix = std::format(STR("ItemId{}"), IndexString);
+			auto ItemIdWithSuffix = PS::Format("ItemId{}", IndexString);
 			auto ItemIdProperty = RowStruct->GetPropertyByName(ItemIdWithSuffix.c_str());
 			if (!ItemIdProperty)
 			{
 				throw std::runtime_error(std::format("Property 'ItemId{}' doesn't exist in DT_PalDropItem, Pal Schema needs an update.", Index));
 			}
 
-			auto RateWithSuffix = std::format(STR("Rate{}"), IndexString);
+			auto RateWithSuffix = PS::Format("Rate{}", IndexString);
 			auto RateProperty = RowStruct->GetPropertyByName(RateWithSuffix.c_str());
 			if (!RateProperty)
 			{
 				throw std::runtime_error(std::format("Property 'Rate{}' doesn't exist in DT_PalDropItem, Pal Schema needs an update.", Index));
 			}
 
-			auto MaxWithSuffix = std::format(STR("Max{}"), IndexString);
+			auto MaxWithSuffix = PS::Format("Max{}", IndexString);
 			auto MaxProperty = RowStruct->GetPropertyByName(MaxWithSuffix.c_str());
 			if (!MaxProperty)
 			{
 				throw std::runtime_error(std::format("Property 'Max{}' doesn't exist in DT_PalDropItem, Pal Schema needs an update.", Index));
 			}
 
-			auto MinWithSuffix = std::format(STR("min{}"), IndexString);
+			auto MinWithSuffix = PS::Format("min{}", IndexString);
 			auto MinProperty = RowStruct->GetPropertyByName(MinWithSuffix.c_str());
 			if (!MinProperty)
 			{
@@ -486,7 +494,7 @@ namespace Palworld {
 			}
 		}
 
-		auto RowName = std::format(STR("{}000"), CharacterId.ToString());
+		auto RowName = PS::Format("{}000", CharacterId.ToString());
 		m_palDropItemTable->AddRow(FName(RowName, FNAME_Add), *reinterpret_cast<RC::Unreal::FTableRowBase*>(PalDropItemData));
 	}
 
@@ -494,7 +502,7 @@ namespace Palworld {
 	{
 		if (Data.contains("Name"))
 		{
-			auto FixedCharacterId = std::format(STR("PAL_NAME_{}"), CharacterId.ToString());
+			auto FixedCharacterId = PS::Format("PAL_NAME_{}", CharacterId.ToString());
 			auto TranslationRowStruct = m_palNameTable->GetRowStruct().Get();
 			auto TextProperty = TranslationRowStruct->GetPropertyByName(STR("TextData"));
 			if (TextProperty)
@@ -518,7 +526,7 @@ namespace Palworld {
 
 		if (Data.contains("ShortDescription"))
 		{
-			auto FixedCharacterId = std::format(STR("PAL_SHORT_DESC_{}"), CharacterId.ToString());
+			auto FixedCharacterId = PS::Format("PAL_SHORT_DESC_{}", CharacterId.ToString());
 			auto TranslationRowStruct = m_palShortDescTable->GetRowStruct().Get();
 			auto TextProperty = TranslationRowStruct->GetPropertyByName(STR("TextData"));
 			if (TextProperty)
@@ -542,7 +550,7 @@ namespace Palworld {
 
 		if (Data.contains("LongDescription"))
 		{
-			auto FixedCharacterId = std::format(STR("PAL_LONG_DESC_{}"), CharacterId.ToString());
+			auto FixedCharacterId = PS::Format("PAL_LONG_DESC_{}", CharacterId.ToString());
 			auto TranslationRowStruct = m_palLongDescTable->GetRowStruct().Get();
 			auto TextProperty = TranslationRowStruct->GetPropertyByName(STR("TextData"));
 			if (TextProperty)
@@ -569,7 +577,7 @@ namespace Palworld {
 	{
 		if (Data.contains("Name"))
 		{
-			auto FixedCharacterId = std::format(STR("PAL_NAME_{}"), CharacterId.ToString());
+			auto FixedCharacterId = PS::Format("PAL_NAME_{}", CharacterId.ToString());
 			auto TranslationRowStruct = m_palNameTable->GetRowStruct().Get();
 			auto TextProperty = TranslationRowStruct->GetPropertyByName(STR("TextData"));
 			if (TextProperty)
@@ -584,7 +592,7 @@ namespace Palworld {
 
 		if (Data.contains("ShortDescription"))
 		{
-			auto FixedCharacterId = std::format(STR("PAL_SHORT_DESC_{}"), CharacterId.ToString());
+			auto FixedCharacterId = PS::Format("PAL_SHORT_DESC_{}", CharacterId.ToString());
 			auto TranslationRowStruct = m_palShortDescTable->GetRowStruct().Get();
 			auto TextProperty = TranslationRowStruct->GetPropertyByName(STR("TextData"));
 			if (TextProperty)
@@ -599,7 +607,7 @@ namespace Palworld {
 
 		if (Data.contains("LongDescription"))
 		{
-			auto FixedCharacterId = std::format(STR("PAL_LONG_DESC_{}"), CharacterId.ToString());
+			auto FixedCharacterId = PS::Format("PAL_LONG_DESC_{}", CharacterId.ToString());
 			auto TranslationRowStruct = m_palLongDescTable->GetRowStruct().Get();
 			auto TextProperty = TranslationRowStruct->GetPropertyByName(STR("TextData"));
 			if (TextProperty)

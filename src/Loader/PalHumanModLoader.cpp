@@ -1,3 +1,4 @@
+#include "Utility/LinuxFormat.h"
 #include "Unreal/CoreUObject/UObject/Class.hpp"
 #include "Unreal/Engine/UDataTable.hpp"
 #include "Unreal/FProperty.hpp"
@@ -63,6 +64,7 @@ namespace Palworld {
             m_itemShopLotteryDataTable = GetDatatableByName("DT_ItemShopLotteryData");
             m_itemShopCreateDataTable = GetDatatableByName("DT_ItemShopCreateData");
             m_itemShopSettingDataTable = GetDatatableByName("DT_ItemShopSettingData");
+            if (HasDatatableLookupFailed()) return false;
         }
         catch (const std::exception& e)
         {
@@ -260,28 +262,28 @@ namespace Palworld {
 				continue;
 			}
 
-			auto ItemIdWithSuffix = std::format(STR("ItemId{}"), Index);
+			auto ItemIdWithSuffix = PS::Format("ItemId{}", Index);
 			auto ItemIdProperty = RowStruct->GetPropertyByName(ItemIdWithSuffix.c_str());
 			if (!ItemIdProperty)
 			{
 				throw std::runtime_error(std::format("Property 'ItemId{}' doesn't exist in DT_PalDropItem, Pal Schema needs an update.", Index));
 			}
 
-			auto RateWithSuffix = std::format(STR("Rate{}"), Index);
+			auto RateWithSuffix = PS::Format("Rate{}", Index);
 			auto RateProperty = RowStruct->GetPropertyByName(RateWithSuffix.c_str());
 			if (!RateProperty)
 			{
 				throw std::runtime_error(std::format("Property 'Rate{}' doesn't exist in DT_PalDropItem, Pal Schema needs an update.", Index));
 			}
 
-			auto MaxWithSuffix = std::format(STR("Max{}"), Index);
+			auto MaxWithSuffix = PS::Format("Max{}", Index);
 			auto MaxProperty = RowStruct->GetPropertyByName(MaxWithSuffix.c_str());
 			if (!MaxProperty)
 			{
 				throw std::runtime_error(std::format("Property 'Max{}' doesn't exist in DT_PalDropItem, Pal Schema needs an update.", Index));
 			}
 
-			auto MinWithSuffix = std::format(STR("min{}"), Index);
+			auto MinWithSuffix = PS::Format("min{}", Index);
 			auto MinProperty = RowStruct->GetPropertyByName(MinWithSuffix.c_str());
 			if (!MinProperty)
 			{
@@ -306,7 +308,7 @@ namespace Palworld {
 			}
 		}
 
-		auto RowName = std::format(STR("{}000"), CharacterId.ToString());
+		auto RowName = PS::Format("{}000", CharacterId.ToString());
 		m_dropItemTable->AddRow(FName(RowName, FNAME_Add), *reinterpret_cast<RC::Unreal::FTableRowBase*>(NpcDropItemData.GetData()));
 	}
 
@@ -315,7 +317,7 @@ namespace Palworld {
 	{
 		if (Data.contains("Name"))
 		{
-			auto FixedCharacterId = std::format(STR("HUMAN_NAME_{}"), CharacterId.ToString());
+			auto FixedCharacterId = PS::Format("HUMAN_NAME_{}", CharacterId.ToString());
 			auto TranslationRowStruct = m_npcNameTable->GetRowStruct().Get();
 			auto TextProperty = TranslationRowStruct->GetPropertyByName(STR("TextData"));
 			if (TextProperty)
@@ -343,7 +345,7 @@ namespace Palworld {
 	{
 		if (Data.contains("Name"))
 		{
-			auto FixedCharacterId = std::format(STR("HUMAN_NAME_{}"), CharacterId.ToString());
+			auto FixedCharacterId = PS::Format("HUMAN_NAME_{}", CharacterId.ToString());
 			auto TranslationRowStruct = m_npcNameTable->GetRowStruct().Get();
 			auto TextProperty = TranslationRowStruct->GetPropertyByName(STR("TextData"));
 			if (TextProperty)

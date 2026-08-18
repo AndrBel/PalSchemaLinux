@@ -28,7 +28,7 @@ namespace UECustom::BPGeneratedClassHelper {
         return newBlueprintClass;
     }
 
-    UObject* UECustom::BPGeneratedClassHelper::FindComponentTemplateByName(UObject* BPGeneratedClass, FName TemplateName)
+    UObject* FindComponentTemplateByName(UObject* BPGeneratedClass, FName TemplateName)
     {
         using FindComponentTemplateByNameSignature = UObject * (*)(UObject*, const FName&);
         static void* FunctionPtr = nullptr;
@@ -46,7 +46,7 @@ namespace UECustom::BPGeneratedClassHelper {
         return reinterpret_cast<FindComponentTemplateByNameSignature>(FunctionPtr)(BPGeneratedClass, TemplateName);
     }
 
-    bool UECustom::BPGeneratedClassHelper::GetGeneratedClassesHierarchy(UClass* InClass, TArray<UObject*>& OutBPGClasses)
+    bool GetGeneratedClassesHierarchy(UClass* InClass, TArray<UObject*>& OutBPGClasses)
     {
         using GetGeneratedClassesHierarchySignature = bool(*)(UClass*, TArray<UObject*>&);
         static void* FunctionPtr = nullptr;

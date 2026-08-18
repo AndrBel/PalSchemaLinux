@@ -1,3 +1,4 @@
+#include "Utility/LinuxCompat.h"
 #include "SDK/Classes/Custom/UObjectWrapper.h"
 #include "SDK/Helper/PropertyHelper.h"
 

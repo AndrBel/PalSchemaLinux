@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Utility/LinuxCompat.h"
 #include <ctype.h>
 #include <wctype.h>
 #include <type_traits>

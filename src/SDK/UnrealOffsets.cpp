@@ -42,11 +42,31 @@ void Palworld::UnrealOffsets::Initialize()
     PS::Log<LogLevel::Verbose>(STR("Unreal Version set to {}.{}.\n"), Unreal::Version::Major, Unreal::Version::Minor);
 
     auto FNameConstructorAddress = Palworld::SignatureManager::GetSignature("FName::Constructor");
+    #ifdef __linux__
+    // Linux: Fehlt die Signatur, ist die Adresse 0 — dann NICHT zuweisen.
+    // UE4SS loest diese Zeiger selbst korrekt auf; ein Ueberschreiben mit 0
+    // zerstoert die funktionierende Namensaufloesung (Symptom: Row 'None').
+    if (FNameConstructorAddress)
+    {
+        FName::ConstructorInternal.assign_address(FNameConstructorAddress);
+    }
+    #else
     FName::ConstructorInternal.assign_address(FNameConstructorAddress);
+    #endif
     PS::Log<LogLevel::Verbose>(STR("FName::Constructor was assigned address of {}\n"), FNameConstructorAddress);
 
     auto FNameToStringAddress = Palworld::SignatureManager::GetSignature("FName::ToString_Wchar");
+    #ifdef __linux__
+    // Linux: Fehlt die Signatur, ist die Adresse 0 — dann NICHT zuweisen.
+    // UE4SS loest diese Zeiger selbst korrekt auf; ein Ueberschreiben mit 0
+    // zerstoert die funktionierende Namensaufloesung (Symptom: Row 'None').
+    if (FNameToStringAddress)
+    {
+        FName::ToStringInternal.assign_address(FNameToStringAddress);
+    }
+    #else
     FName::ToStringInternal.assign_address(FNameToStringAddress);
+    #endif
     PS::Log<LogLevel::Verbose>(STR("FName::ToString was assigned address of {}\n"), FNameToStringAddress);
 
     ApplyMemberVariableLayout();

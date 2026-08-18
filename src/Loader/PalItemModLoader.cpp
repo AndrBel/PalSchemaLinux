@@ -1,3 +1,5 @@
+#include "Utility/PsTrace.h"
+#include "Utility/LinuxFormat.h"
 #include "Unreal/CoreUObject/UObject/UnrealType.hpp"
 #include "Unreal/Engine/UDataTable.hpp"
 #include "SDK/Classes/Custom/UObjectGlobals.h"
@@ -62,15 +64,25 @@ namespace Palworld {
     {
         try
         {
+            PS::Trace("  items: StaticFindObject DataAsset");
             GItemDataAsset = UECustom::UObjectGlobals::StaticFindObject<UPalStaticItemDataAsset*>(nullptr, nullptr,
                 TEXT("/Game/Pal/DataAsset/Item/DA_StaticItemDataAsset.DA_StaticItemDataAsset"));
+            PS::Trace("  items: DataAsset=%p", (void*)GItemDataAsset);
 
+            PS::Trace("  items: DT_ItemDataTable");
             m_itemDataTable = GetDatatableByName("DT_ItemDataTable");
+            PS::Trace("  items: DT_ItemRecipeDataTable");
             m_itemRecipeTable = GetDatatableByName("DT_ItemRecipeDataTable");
+            PS::Trace("  items: DT_ItemNameText");
             m_nameTranslationTable = GetDatatableByName("DT_ItemNameText");
+            PS::Trace("  items: DT_ItemDescriptionText");
             m_descriptionTranslationTable = GetDatatableByName("DT_ItemDescriptionText");
 
+            PS::Trace("  items: Lookup-Status pruefen");
+            if (HasDatatableLookupFailed()) return false;
+            PS::Trace("  items: SetupHooks");
             SetupHooks();
+            PS::Trace("  items: SetupHooks fertig");
         }
         catch (const std::exception& e)
         {
@@ -336,7 +348,7 @@ namespace Palworld {
 	{
 		if (Data.contains("Name"))
 		{
-			auto RowId = std::format(TEXT("ITEM_NAME_{}"), ItemId.ToString());
+			auto RowId = PS::Format("ITEM_NAME_{}", ItemId.ToString());
 			auto RowStruct = m_nameTranslationTable->GetRowStruct().Get();
 			auto TextDataProperty = RowStruct->GetPropertyByName(TEXT("TextData"));
             if (TextDataProperty)
@@ -360,7 +372,7 @@ namespace Palworld {
 
 		if (Data.contains("Description"))
 		{
-			auto RowId = std::format(TEXT("ITEM_DESC_{}"), ItemId.ToString());
+			auto RowId = PS::Format("ITEM_DESC_{}", ItemId.ToString());
             auto RowStruct = m_descriptionTranslationTable->GetRowStruct().Get();
             auto TextDataProperty = RowStruct->GetPropertyByName(TEXT("TextData"));
             if (TextDataProperty)
@@ -387,7 +399,7 @@ namespace Palworld {
 	{
 		if (Data.contains("Name"))
 		{
-			auto RowId = std::format(TEXT("ITEM_NAME_{}"), ItemId.ToString());
+			auto RowId = PS::Format("ITEM_NAME_{}", ItemId.ToString());
 			auto RowStruct = m_nameTranslationTable->GetRowStruct().Get();
 			auto TextDataProperty = RowStruct->GetPropertyByName(TEXT("TextData"));
 			if (TextDataProperty)
@@ -402,7 +414,7 @@ namespace Palworld {
 
 		if (Data.contains("Description"))
 		{
-			auto RowId = std::format(TEXT("ITEM_DESC_{}"), ItemId.ToString());
+			auto RowId = PS::Format("ITEM_DESC_{}", ItemId.ToString());
 			auto RowStruct = m_nameTranslationTable->GetRowStruct().Get();
 			auto TextDataProperty = RowStruct->GetPropertyByName(TEXT("TextData"));
 			if (TextDataProperty)
@@ -459,52 +471,66 @@ namespace Palworld {
     {
         try
         {
+            // Linux: NICHT werfen. Im Prozess liegen drei C++-Laufzeiten (statisches libc++/
+            // libc++abi im Spiel, statisches libstdc++ in libsteam_api.so, libstdc++.so.6 in
+            // dieser Bibliothek); ein throw bindet an libc++abis __cxa_throw, die Landing Pads
+            // an eine fremde Personality-Routine -> __foreign_exception -> SIGSEGV. Genau daran
+            // starb zuvor die gesamte GameInstanceInit-Phase und damit alle zehn Loader auf
+            // einmal, ausgeloest durch eine einzelne fehlende Signatur.
             auto address = Palworld::SignatureManager::GetSignature("UPalItemSlot::UpdateItem_ServerInternal");
             if (!address)
             {
-                throw std::runtime_error("Signature for UPalItemSlot::UpdateItem_ServerInternal could not be found");
+                PS::Log<LogLevel::Warning>(STR("Signatur fuer UPalItemSlot::UpdateItem_ServerInternal fehlt; Item-Hooks bleiben aus.\n"));
+                return;
             }
 
             ApplyItemSaveDataAddress = Palworld::SignatureManager::GetSignature("UPalItemContainer::ApplySaveData");
             if (!ApplyItemSaveDataAddress)
             {
-                throw std::runtime_error("Signature for UPalItemContainer::ApplySaveData could not be found");
+                PS::Log<LogLevel::Warning>(STR("Signatur fuer UPalItemContainer::ApplySaveData fehlt; Item-Hooks bleiben aus.\n"));
+                return;
             }
 
             auto address2 = Palworld::SignatureManager::GetSignature("UPalDynamicItemWorldSubsystem::Create_ServerInternal");
             if (!address2)
             {
-                throw std::runtime_error("Signature for UPalDynamicItemWorldSubsystem::Create_ServerInternal could not be found");
+                PS::Log<LogLevel::Warning>(STR("Signatur fuer UPalDynamicItemWorldSubsystem::Create_ServerInternal fehlt; Item-Hooks bleiben aus.\n"));
+                return;
             }
 
             ApplyDynamicItemSaveDataAddress = Palworld::SignatureManager::GetSignature("UPalDynamicItemWorldSubsystem::ApplyWorldSaveData");
             if (!ApplyDynamicItemSaveDataAddress)
             {
-                throw std::runtime_error("Signature for UPalDynamicItemWorldSubsystem::ApplyWorldSaveData could not be found");
+                PS::Log<LogLevel::Warning>(STR("Signatur fuer UPalDynamicItemWorldSubsystem::ApplyWorldSaveData fehlt; Item-Hooks bleiben aus.\n"));
+                return;
             }
 
             auto address3 = Palworld::SignatureManager::GetSignature("ValidateWorldSaveDynamicItemStaticIds");
             if (!address3)
             {
-                throw std::runtime_error("Signature for ValidateWorldSaveDynamicItemStaticIds could not be found");
+                PS::Log<LogLevel::Warning>(STR("Signatur fuer ValidateWorldSaveDynamicItemStaticIds fehlt; Item-Hooks bleiben aus.\n"));
+                return;
             }
 
             auto address4 = Palworld::SignatureManager::GetSignature("ValidateDynamicItemSaveData");
             if (!address4)
             {
-                throw std::runtime_error("Signature for ValidateDynamicItemSaveData could not be found");
+                PS::Log<LogLevel::Warning>(STR("Signatur fuer ValidateDynamicItemSaveData fehlt; Item-Hooks bleiben aus.\n"));
+                return;
             }
 
             auto address5 = Palworld::SignatureManager::GetSignature("FPalPlayerRecordDataRepInfoArrayThreadSafe_IntVal::ApplyDataMap");
             if (!address5)
             {
-                throw std::runtime_error("Signature for FPalPlayerRecordDataRepInfoArrayThreadSafe_IntVal::ApplyDataMap could not be found");
+                PS::Log<LogLevel::Warning>(STR("Signatur fuer FPalPlayerRecordDataRepInfoArrayThreadSafe_IntVal::ApplyDataMap fehlt; Item-Hooks bleiben aus.\n"));
+                return;
             }
 
             CraftItemCount_ApplyDataMapReturnAddress = Palworld::SignatureManager::GetSignature("CraftItemCount_ApplyDataMapReturn");
             if (!CraftItemCount_ApplyDataMapReturnAddress)
             {
-                throw std::runtime_error("Signature for CraftItemCount_ApplyDataMapReturn could not be found");
+                PS::Log<LogLevel::Warning>(STR("Signatur fuer CraftItemCount_ApplyDataMapReturn fehlt; Item-Hooks bleiben aus.\n"));
+                return;
             }
 
             UpdateItem_ServerInternalHook = safetyhook::create_inline(reinterpret_cast<void*>(address),
@@ -552,7 +578,7 @@ namespace Palworld {
 
     void PalItemModLoader::UpdateItem_Detour(RC::Unreal::UObject* self, FPalItemId* ItemId, int amount, bool param4, bool param5)
     {
-        if (_ReturnAddress() == ApplyItemSaveDataAddress && !IsValidItem(self, ItemId->StaticId))
+        if (__builtin_return_address(0) == ApplyItemSaveDataAddress && !IsValidItem(self, ItemId->StaticId))
         {
             PS::Log<LogLevel::Warning>(TEXT("Item '{}' is invalid. Deleting.\n"), ItemId->StaticId.ToString());
             ItemId->StaticId = NAME_None;
@@ -564,7 +590,7 @@ namespace Palworld {
 
     UPalDynamicItemDataBase* PalItemModLoader::CreateDynamicItemDatabase_Detour(RC::Unreal::UObject* self, FPalDynamicItemId* dynamicItemId, RC::Unreal::FName staticId, void* itemCreateParam)
     {
-        if (_ReturnAddress() == ApplyDynamicItemSaveDataAddress && !IsValidItem(self, staticId))
+        if (__builtin_return_address(0) == ApplyDynamicItemSaveDataAddress && !IsValidItem(self, staticId))
         {
             PS::Log<LogLevel::Warning>(TEXT("Item '{}' is invalid. Dynamic Data for this item will be deleted on next save.\n"), staticId.ToString());
 
@@ -598,7 +624,7 @@ namespace Palworld {
         * This fixes crashing related to craft item counts in UPalUserAchievementChecker::CheckCraftCount for custom items that were uninstalled-
         * but still exist in the save.
         */
-        if (_ReturnAddress() == CraftItemCount_ApplyDataMapReturnAddress)
+        if (__builtin_return_address(0) == CraftItemCount_ApplyDataMapReturnAddress)
         {
             RC::Unreal::TMap<RC::Unreal::FName, RC::Unreal::int32> NewMap;
             for (auto& [StaticItemId, Count] : MapToApply)

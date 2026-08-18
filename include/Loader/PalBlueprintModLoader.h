@@ -19,7 +19,7 @@ namespace Palworld {
         ~PalBlueprintModLoader();
     protected:
         virtual void OnLoad(const std::filesystem::path& loaderPath, const RC::StringType& modName, const EEngineLifecyclePhase& engineLifecyclePhase) override final;
-        virtual void OnAutoReload(const std::filesystem::path::string_type& modName, const std::filesystem::path& modFilePath) override final;
+        virtual void OnAutoReload(const RC::StringType& modName, const std::filesystem::path& modFilePath) override final;
 
         virtual bool CanInitialize(const EEngineLifecyclePhase& engineLifecyclePhase) override final;
         virtual bool OnInitialize() override final;
@@ -28,6 +28,10 @@ namespace Palworld {
 
         bool HookPostLoad();
         bool HookPostInitComponents();
+
+#ifdef __linux__
+        void ApplyToExistingObjects() override;
+#endif
 
         // Does not call UE functions, therefore safe to call whenever
         void LoadSafe(const nlohmann::json& data);
@@ -45,7 +49,9 @@ namespace Palworld {
 
         void HandleInheritableComponent(UECustom::UBlueprintGeneratedClass* bpClass, const RC::StringType& componentName, const nlohmann::json& componentData);
 
-        void HandleNodeComponent(UECustom::UBlueprintGeneratedClass* bpClass, const RC::StringType& componentName, const nlohmann::json& componentData);
+        // Gibt zurueck, ob ein passendes Component-Template in der SimpleConstructionScript
+        // gefunden und gepatcht wurde (Messpunkt Werkbank-Rezept, 2026-08-15).
+        bool HandleNodeComponent(UECustom::UBlueprintGeneratedClass* bpClass, const RC::StringType& componentName, const nlohmann::json& componentData);
 
         void ModifyComponent(RC::Unreal::UObject* component, const nlohmann::json& componentData);
     private:

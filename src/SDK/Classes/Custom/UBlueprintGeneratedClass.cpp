@@ -26,8 +26,22 @@ namespace UECustom {
         if (!fn)
         {
             auto staticClass = StaticClass();
-            auto fnAddress = Palworld::GetVirtualFunctionFromClass(staticClass, 120);
-            fn = static_cast<FnSignature>(fnAddress);
+            // Linux: Index ist vptr-relativ (ohne Kopfeintraege) und wie alle
+            // MSVC-Indizes um einen Destruktor-Slot zu klein.
+            // Verifiziert an PalServer-Linux-Shipping:
+            //   fnptr 120 = 0xa132e40 = PostLoadDefaultObject(UObject*)
+            //     -- nimmt (this, UObject*) und ruft darauf PostLoad
+            //     ("call *0xa8(%rax)"). Ein bool als UObject* zu
+            //     uebergeben endet zwangslaeufig im SIGSEGV.
+            //   fnptr 121 = 0xa135d30 = PurgeClass(bool) -- ruft
+            //     UClass::PurgeClass (0x7a1c020) und raeumt 0x2c8 auf.
+#ifdef __linux__
+            constexpr size_t PurgeClassSlot = 121; // MSVC: 120
+#else
+            constexpr size_t PurgeClassSlot = 120;
+#endif
+            auto fnAddress = Palworld::GetVirtualFunctionFromClass(staticClass, PurgeClassSlot);
+            fn = reinterpret_cast<FnSignature>(fnAddress);
         }
 
         if (!fn)

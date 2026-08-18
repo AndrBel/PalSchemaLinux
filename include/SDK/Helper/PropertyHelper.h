@@ -4,6 +4,11 @@
 #include "SDK/StaticClassStorage.h"
 #include "Utility/Logging.h"
 
+// GCC/Linux: strikter Two-Phase-Lookup — CastProperty wird weiter unten
+// definiert, muss aber vor der ersten Verwendung deklariert sein.
+template <typename FFieldDerivedType>
+FFieldDerivedType* CastProperty(RC::Unreal::FField* Field);
+
 namespace RC::Unreal {
     class UScriptStruct;
     class FProperty;
@@ -59,6 +64,14 @@ namespace Palworld::PropertyHelper {
     void SetArrayPropertyValueFromJsonValue(void* Data, RC::Unreal::FArrayProperty* Property, const nlohmann::json& Value);
 
     void SetMapPropertyValueFromJsonValue(void* Data, RC::Unreal::FMapProperty* Property, const nlohmann::json& Value);
+
+    // Messpunkt Werkbank-Rezept (2026-08-15): schreibt Rohwert + (falls aufloesbar)
+    // symbolischen Namen einer skalaren Enum-/Byte-/Numeric-Property nach PS_TRACE_FILE.
+    // Deckt auf, ob ein Wert ueber FEnumProperty (nicht-virtuell, sicher) oder
+    // FByteProperty+Enum (virtuell, PsGetIntPropertyEnum @0x180, unter Linux nie zur
+    // Laufzeit verifiziert) aufgeloest wird. Wirkungslos wenn Tracing aus ist,
+    // ueberspringt still, wenn die Property weder enum- noch zahlenartig ist.
+    void TraceScalarValue(const char* Label, RC::Unreal::FProperty* Property, void* Data);
 
     // Throws a runtime error if the validation failed
     void ValidateJsonValueType(RC::Unreal::FProperty* Property, const nlohmann::json& Value);

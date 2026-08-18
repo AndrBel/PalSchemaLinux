@@ -1,3 +1,4 @@
+#include "Utility/PsTrace.h"
 #include "Loader/PalModLoaderBase.h"
 #include "Unreal/Engine/UDataTable.hpp"
 #include "Utility/JsonHelpers.h"
@@ -35,7 +36,7 @@ namespace Palworld {
         OnSetup();
     }
 
-    void PalModLoaderBase::AutoReload(const std::filesystem::path::string_type& modName, const std::filesystem::path& modFilePath)
+    void PalModLoaderBase::AutoReload(const RC::StringType& modName, const std::filesystem::path& modFilePath)
     {
         OnAutoReload(modName, modFilePath);
     }
@@ -99,7 +100,7 @@ namespace Palworld {
                 if (entry.is_directory())
                 {
                     auto& path = entry.path();
-                    auto folderName = path.stem().native();
+                    auto folderName = RC::to_wstring(path.stem().string()); // Linux: native() ist std::string
                     callback(entry.path(), folderName);
                 }
             }
@@ -120,23 +121,33 @@ namespace Palworld {
     {
         if (!m_datatableRegistry)
         {
-            throw std::runtime_error(std::format("Unable to process 'GetDatatableByName', UDataTableRegistry has not been initialized properly."));
+            m_datatableLookupFailed = true;
+            PS::Log<RC::LogLevel::Error>(STR("Unable to process 'GetDatatableByName', UDataTableRegistry has not been initialized properly."));
+            return nullptr;
         }
 
         auto datatable = TryGetDatatableByName(name);
         if (!datatable)
         {
-            throw std::runtime_error(std::format("Failed to find UDataTable '{}'", name));
+            // Bewusst KEIN throw -- siehe Kommentar in PalModLoaderBase.h.
+            m_datatableLookupFailed = true;
+            PS::Log<RC::LogLevel::Error>(STR("Failed to find UDataTable '{}'."), RC::to_generic_string(name));
+            return nullptr;
         }
 
         return datatable;
+    }
+
+    bool PalModLoaderBase::HasDatatableLookupFailed() const
+    {
+        return m_datatableLookupFailed;
     }
 
     void PalModLoaderBase::OnSetup() {}
 
     void PalModLoaderBase::OnLoad(const std::filesystem::path& loaderPath, const RC::StringType& modName, const EEngineLifecyclePhase& engineLifecyclePhase) {}
 
-    void PalModLoaderBase::OnAutoReload(const std::filesystem::path::string_type& modName, const std::filesystem::path& modFilePath) {}
+    void PalModLoaderBase::OnAutoReload(const RC::StringType& modName, const std::filesystem::path& modFilePath) {}
 
     void PalModLoaderBase::PostInitialize() {}
 
@@ -153,9 +164,20 @@ namespace Palworld {
             return;
         }
 
-        if (!OnInitialize())
+        m_datatableLookupFailed = false;
+
+        PS::Trace("LOADER %s: OnInitialize beginnt", m_modFolderType.c_str());
+        const bool TraceOk = OnInitialize();
+        PS::Trace("LOADER %s: OnInitialize = %d", m_modFolderType.c_str(), (int)TraceOk);
+        if (!TraceOk)
         {
             PS::Log<LogLevel::Error>(STR("Failed to initialize '{}' loader.\n"), RC::to_generic_string(m_modFolderType));
+            return;
+        }
+
+        if (m_datatableLookupFailed)
+        {
+            PS::Log<LogLevel::Error>(STR("Loader '{}' reported a missing UDataTable; leaving it disabled."), RC::to_generic_string(m_modFolderType));
             return;
         }
 

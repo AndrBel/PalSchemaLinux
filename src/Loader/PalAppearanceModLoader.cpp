@@ -38,7 +38,7 @@ namespace Palworld {
         });
     }
 
-    void PalAppearanceModLoader::OnAutoReload(const std::filesystem::path::string_type& modName, const std::filesystem::path& modFilePath)
+    void PalAppearanceModLoader::OnAutoReload(const RC::StringType& modName, const std::filesystem::path& modFilePath)
     {
         PS::JsonHelpers::ParseJsonFilesInPath(modFilePath, [&](const nlohmann::json& data) {
             LoadAppearances(data);
@@ -66,6 +66,7 @@ namespace Palworld {
             m_presetTable = GetDatatableByName("DT_CharacterCreationMakeInfoPreset");
             m_colorPresetTable = GetDatatableByName("DT_CharacterCreationColorPresetTable");
             m_equipmentTable = GetDatatableByName("DT_CharacterCreationMeshPresetTable_Equipments");
+            if (HasDatatableLookupFailed()) return false;
         }
         catch (const std::exception& e)
         {

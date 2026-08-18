@@ -1,3 +1,4 @@
+#include "Utility/LinuxFormat.h"
 #include "Unreal/CoreUObject/UObject/Class.hpp"
 #include "Unreal/UEnum.hpp"
 #include "Unreal/Engine/UDataTable.hpp"
@@ -34,7 +35,7 @@ namespace Palworld {
         m_onLevelHiddenFunction->UnregisterHook(m_onLevelHiddenCallbackId);
     }
 
-    void PalSpawnLoader::Reload(const std::filesystem::path::string_type& modName, const nlohmann::json& data)
+    void PalSpawnLoader::Reload(const RC::StringType& modName, const nlohmann::json& data)
     {
         UnloadMod(modName);
         LoadSpawns(modName, data);
@@ -57,7 +58,7 @@ namespace Palworld {
         });
     }
 
-    void PalSpawnLoader::OnAutoReload(const std::filesystem::path::string_type& modName, const std::filesystem::path& modFilePath)
+    void PalSpawnLoader::OnAutoReload(const RC::StringType& modName, const std::filesystem::path& modFilePath)
     {
         PS::JsonHelpers::ParseJsonFileInPath(modFilePath, [&](const nlohmann::json& data) {
             Reload(modName, data);
@@ -79,6 +80,7 @@ namespace Palworld {
         try
         {
             m_bossSpawnerLocationData = GetDatatableByName("DT_BossSpawnerLoactionData");
+            if (HasDatatableLookupFailed()) return false;
 
             auto CleanupWorld_FuncPtr = Palworld::SignatureManager::GetSignature("UWorld::CleanupWorld");
             if (!CleanupWorld_FuncPtr)
@@ -161,7 +163,7 @@ namespace Palworld {
         }
     }
 
-    void PalSpawnLoader::RegisterSpawn(const std::filesystem::path::string_type& modName, const nlohmann::json& value)
+    void PalSpawnLoader::RegisterSpawn(const RC::StringType& modName, const nlohmann::json& value)
     {
         PS::JsonHelpers::ValidateFieldExists(value, "Type");
         PS::JsonHelpers::ValidateFieldExists(value, "Location");
@@ -209,7 +211,7 @@ namespace Palworld {
         Output::send<LogLevel::Normal>(STR("Added new spawn: {}\n"), spawnerInfo.ToString());
     }
 
-    void PalSpawnLoader::RegisterSheet(const std::filesystem::path::string_type& modName, PS::SpawnerInfo& spawnerInfo, const nlohmann::json& value)
+    void PalSpawnLoader::RegisterSheet(const RC::StringType& modName, PS::SpawnerInfo& spawnerInfo, const nlohmann::json& value)
     {
         PS::JsonHelpers::ValidateFieldExists(value, "SpawnGroupList");
         auto& spawnGroupList = value.at("SpawnGroupList");
@@ -230,7 +232,7 @@ namespace Palworld {
             PS::JsonHelpers::ParseString(value, "SpawnerName", spawnerName);
 
             auto spawnerNameWide = RC::to_generic_string(spawnerName);
-            spawnerNameWide = std::format(TEXT("{}_{}"), spawnerInfo.ModName, spawnerNameWide);
+            spawnerNameWide = PS::Format("{}_{}", spawnerInfo.ModName, spawnerNameWide);
 
             spawnerInfo.SpawnerName = FName(spawnerNameWide, FNAME_Add);
         }
@@ -251,7 +253,7 @@ namespace Palworld {
         }
     }
 
-    void PalSpawnLoader::RegisterMonoNPC(const std::filesystem::path::string_type& modName, PS::SpawnerInfo& spawnerInfo, const nlohmann::json& value)
+    void PalSpawnLoader::RegisterMonoNPC(const RC::StringType& modName, PS::SpawnerInfo& spawnerInfo, const nlohmann::json& value)
     {
         PS::JsonHelpers::ValidateFieldExists(value, "NPCID");
         PS::JsonHelpers::ValidateFieldExists(value, "Level");
@@ -441,7 +443,7 @@ namespace Palworld {
         }
     }
 
-    void PalSpawnLoader::UnloadMod(const std::filesystem::path::string_type& modName)
+    void PalSpawnLoader::UnloadMod(const RC::StringType& modName)
     {
         std::erase_if(m_spawns, [&](PS::SpawnerInfo& spawn) {
             if (spawn.ModName == modName)

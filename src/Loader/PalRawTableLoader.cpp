@@ -9,6 +9,7 @@
 #include "SDK/Structs/Custom/FManagedStruct.h"
 #include "SDK/Helper/PropertyHelper.h"
 #include "Utility/Logging.h"
+#include "Utility/PsTrace.h"
 #include "Utility/JsonHelpers.h"
 #include "Loader/PalRawTableLoader.h"
 #include "Loader/WildcardFilter/WildcardFilters.h"
@@ -50,10 +51,48 @@ namespace Palworld {
         *  Also runs the risk of applying modifications twice when two parent tables have _Common at the end.
         */
 
-        auto parentTables = compositeDatatable->GetParentTables();
-        for (auto& parentTable : parentTables)
+        auto* parentTables = compositeDatatable->GetParentTables();
+
+#ifdef __linux__
+        // Unter Windows haengt der Patch am UDataTable::Serialize-Hook und trifft die
+        // Elterntabelle, BEVOR die Composite ihren Zeilen-Cache daraus aufbaut -- die
+        // Aenderung wandert dann beim Cache-Aufbau von selbst in die Composite.
+        //
+        // Unter Linux feuert dieser Hook nicht; die Tabellen werden erst nachtraeglich
+        // eingesammelt (PalMainLoader::ScanExistingDataTables). Zu diesem Zeitpunkt steht
+        // der Cache der Composite laengst. Ein Patch auf die Elterntabelle kommt damit zu
+        // spaet und bleibt im Spiel folgenlos -- das Log meldet trotzdem Erfolg, weil die
+        // Elterntabelle ja korrekt veraendert wurde. Genau dieses stille Auseinanderlaufen
+        // hat "488 rows updated" bei null Drops im Spiel erzeugt.
+        //
+        // Deshalb hier direkt in die Composite schreiben. Sie erbt von UDataTable, die
+        // Zeilen liegen in derselben RowMap-Struktur; es ist die Tabelle, die das Spiel
+        // zur Laufzeit abfragt. Als Schluessel kommen sowohl der Composite-Name als auch
+        // die Namen der _Common-Eltern in Frage, da Mods ueblicherweise den Eltern-Namen
+        // verwenden (siehe UDataTableRegistry::GetDatatableByName).
+        Apply(compositeDatatable->GetName(), compositeDatatable);
+        if (parentTables)
         {
-            auto parentTableName = parentTable->GetName();
+            for (auto& parentTable : *parentTables)
+            {
+                auto* parentPtr = parentTable.Get();
+                if (!parentPtr) continue;
+                auto parentTableName = parentPtr->GetName();
+                if (parentTableName.ends_with(STR("_Common")))
+                {
+                    Apply(parentTableName, compositeDatatable);
+                }
+            }
+        }
+        return;
+#endif
+
+        if (!parentTables) return;
+        for (auto& parentTable : *parentTables)
+        {
+            auto* parentPtr = parentTable.Get();
+            if (!parentPtr) continue;
+            auto parentTableName = parentPtr->GetName();
             if (parentTableName.ends_with(STR("_Common")))
             {
                 Apply(compositeDatatable->GetName(), parentTable.Get());
@@ -65,6 +104,7 @@ namespace Palworld {
     {
         for (auto& [dataKey, dataRow] : data.items())
         {
+            PS::Trace("ROW %s", dataKey.c_str());
             if (dataKey == "Rows")
             {
                 outResult.ErrorCount++;
@@ -211,6 +251,33 @@ namespace Palworld {
             {
                 datatable->AddRow(rowName, *reinterpret_cast<RC::Unreal::FTableRowBase*>(newRowData.GetData()));
                 outResult.SuccessfulAdditions++;
+
+                // Linux-Portierung: UDataTable::AddRow() (UE4SS) kopiert unsere fertig
+                // befuellte newRowData intern NICHT direkt in die Tabelle. Es alloziert einen
+                // ZWEITEN, separaten Zeilenspeicher und ruft UScriptStruct::CopyScriptStruct()
+                // auf, um newRowData dort hineinzukopieren. Fuer Structs mit FNameProperty-
+                // Feldern (nicht STRUCT_IsPlainOldData) laeuft das entweder ueber
+                // ICppStructOps::Copy() (IMPLEMENT_UNREAL_VIRTUAL_WRAPPER, also ein
+                // MSVC-Vtable-Offset, unter Linux fuer diesen Pfad nie verifiziert) oder eine
+                // Property-fuer-Property-Kopie ueber FProperty::CopyCompleteValue_InContainer.
+                // Beobachtet: FNameProperty-Felder landen dabei nicht zuverlaessig in der
+                // tatsaechlich gespeicherten Zeile -- nichtdeterministisch (mal korrekt, mal
+                // Speicherinhalt vom vorherigen Nutzer des soeben allozierten Puffers),
+                // waehrend numerische Felder zuverlaessig ankommen (deren Kopierpfad ist bei
+                // STRUCT_IsPlainOldData ein reines memcpy). Deshalb hier die JSON-Werte ein
+                // zweites Mal DIREKT auf die von AddRow tatsaechlich gespeicherte Zeile
+                // anwenden -- ueber denselben Pfad (CopyJsonValueToContainer), der fuer
+                // gewoehnliche Edits bereits als zuverlaessig belegt ist, statt uns auf
+                // AddRows internen Kopiervorgang zu verlassen.
+                if (auto* finalRow = datatable->FindRowUnchecked(rowName))
+                {
+                    LoadResult reapplyResult{};
+                    ModifyRowProperties(datatable, rowName, finalRow, data, reapplyResult);
+                }
+                else
+                {
+                    PS::Log<LogLevel::Warning>(STR("Row '{}' nach AddRow nicht wiedergefunden, Nachbefuellung uebersprungen.\n"), rowName.ToString());
+                }
             }
         }
         catch (const std::exception& e)
@@ -258,11 +325,15 @@ namespace Palworld {
         {
             if (key == "$Filters") continue;
 
+            PS::Trace("  PROP %s: suche", key.c_str());
             auto keyWide = RC::to_generic_string(key);
             auto property = PropertyHelper::GetPropertyByName(rowStruct, keyWide);
+            PS::Trace("  PROP %s: %s", key.c_str(), property ? "gefunden" : "NICHT gefunden");
             if (property)
             {
+                PS::Trace("  PROP %s: schreibe", key.c_str());
                 PropertyHelper::CopyJsonValueToContainer(rowPtr, property, value);
+                PS::Trace("  PROP %s: fertig", key.c_str());
                 wasRowModified = true;
             }
             else

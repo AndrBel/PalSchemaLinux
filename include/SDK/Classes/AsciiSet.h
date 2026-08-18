@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#include "Utility/LinuxCompat.h"
 #include "HAL/Platform.hpp"
 #include "Unreal/Core/Templates/UnrealTemplate.hpp"
 #include "SDK/Structs/Char.h"

@@ -1,3 +1,4 @@
+#include "Utility/LinuxFormat.h"
 #include "Unreal/UObjectGlobals.hpp"
 #include "Unreal/UScriptStruct.hpp"
 #include "Unreal/FProperty.hpp"
@@ -62,6 +63,7 @@ namespace Palworld {
             m_technologyRecipeUnlockTable = GetDatatableByName("DT_TechnologyRecipeUnlock");
             m_technologyNameTable = GetDatatableByName("DT_TechnologyNameText");
             m_technologyDescTable = GetDatatableByName("DT_TechnologyDescText");
+            if (HasDatatableLookupFailed()) return false;
         }
         catch (const std::exception& e)
         {
@@ -364,7 +366,7 @@ namespace Palworld {
         }
 
         auto Suffix = GetAssignIDSuffixByWorkType(Data.at("WorkType"));
-        auto RowFixedName = std::format(STR("{}{}"), BuildingId.ToString(), Suffix);
+        auto RowFixedName = PS::Format("{}{}", BuildingId.ToString(), Suffix);
         m_mapObjectAssignData->AddRow(FName(RowFixedName, FNAME_Add), *reinterpret_cast<RC::Unreal::FTableRowBase*>(RowData));
     }
 
@@ -465,7 +467,7 @@ namespace Palworld {
 
                     if (PropertyName == "Name")
                     {
-                        auto TechnologyName = std::format(STR("NAME_RECIPE_{}"), BuildingId.ToString());
+                        auto TechnologyName = PS::Format("NAME_RECIPE_{}", BuildingId.ToString());
                         auto TechnologyRowName = FName(TechnologyName, FNAME_Add);
                         FMemory::Memcpy(Property->ContainerPtrToValuePtr<void>(RowData), &TechnologyRowName, sizeof(FName));
                         continue;
@@ -473,7 +475,7 @@ namespace Palworld {
 
                     if (PropertyName == "Description")
                     {
-                        auto TechnologyDescription = std::format(STR("DESC_RECIPE_{}"), BuildingId.ToString());
+                        auto TechnologyDescription = PS::Format("DESC_RECIPE_{}", BuildingId.ToString());
                         auto TechnologyRowDescription = FName(TechnologyDescription, FNAME_Add);
                         FMemory::Memcpy(Property->ContainerPtrToValuePtr<void>(RowData), &TechnologyRowDescription, sizeof(FName));
                         continue;
@@ -499,13 +501,13 @@ namespace Palworld {
     {
         if (Data.contains("Name"))
         {
-            auto RowId = std::format(STR("MAPOBJECT_NAME_{}"), BuildingId.ToString());
+            auto RowId = PS::Format("MAPOBJECT_NAME_{}", BuildingId.ToString());
             SetupTranslation(RowId, m_mapObjectNameTable, Data.at("Name"));
         }
 
         if (Data.contains("Description"))
         {
-            auto RowId = std::format(STR("BUILDOBJECT_DESC_{}"), BuildingId.ToString());
+            auto RowId = PS::Format("BUILDOBJECT_DESC_{}", BuildingId.ToString());
             SetupTranslation(RowId, m_buildObjectDescTable, Data.at("Description"));
         }
 
@@ -516,13 +518,13 @@ namespace Palworld {
             {
                 if (Technology.contains("Name"))
                 {
-                    auto RowId = std::format(STR("NAME_RECIPE_{}"), BuildingId.ToString());
+                    auto RowId = PS::Format("NAME_RECIPE_{}", BuildingId.ToString());
                     SetupTranslation(RowId, m_technologyNameTable, Technology.at("Name"));
                 }
 
                 if (Technology.contains("Description"))
                 {
-                    auto RowId = std::format(STR("DESC_RECIPE_{}"), BuildingId.ToString());
+                    auto RowId = PS::Format("DESC_RECIPE_{}", BuildingId.ToString());
                     SetupTranslation(RowId, m_technologyDescTable, Technology.at("Description"));
                 }
             }

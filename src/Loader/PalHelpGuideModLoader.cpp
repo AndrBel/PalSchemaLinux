@@ -57,6 +57,7 @@ namespace Palworld {
                 STR("/Game/Pal/DataAsset/HelpGuide/DA_HelpGuideDataAsset.DA_HelpGuideDataAsset"));
 
             m_helpGuideDescTextTable = GetDatatableByName("DT_HelpGuideDescText");
+            if (HasDatatableLookupFailed()) return false;
         }
         catch (const std::exception& e)
         {

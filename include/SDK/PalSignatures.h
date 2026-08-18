@@ -40,6 +40,41 @@ namespace Palworld {
             { "ValidateDynamicItemSaveData", "40 55 53 56 57 41 54 41 56 41 57 48 8D AC 24 80 FE FF FF 48 81 EC 80 02 00 00 48 8B ?? ?? ?? ?? ?? 48 33 C4 48 89 85 70 01 00 00" },
             { "CraftItemCount_ApplyDataMapReturn", "48 8B CB E8 ?? ?? ?? ?? 48 8B C8 48 89 45 77" },
         };
+#ifdef __linux__
+        // Linux-Portierung: Was per vtable-Symbol exakt aufloesbar ist, wird NICHT
+        // gescannt. Die AOB-Muster oben stammen aus dem MSVC-Build und koennen auf
+        // dem Clang/Linux-Build prinzipiell nicht passen.
+        //
+        // Wert = { _ZTV-Symbol, ROH-Index in dieses Symbol }. Der Rohindex enthaelt
+        // die zwei Itanium-Kopfeintraege (offset-to-top, typeinfo):
+        //     Rohindex = 2 + Funktionszeiger-Index
+        //
+        // AGameModeBase::InitGameState, Funktionszeiger-Index 233 (Rohindex 235),
+        // Adresse 0xa3c4680 in PalServer-Linux-Shipping v1.0.3.101283. Belege:
+        //   1) Der Rumpf entspricht 1:1 der UE5-Quelle und byteweise dem
+        //      Windows-AOB oben (40 53 = push rbx / 48 8B 41 10 = GetClass()
+        //      aus this+0x10 / 48 8B 91 F0 02 00 00 = GameState aus this+0x2F0):
+        //        push %rbx ; mov %rdi,%rbx ; mov 0x10(%rdi),%rax
+        //        mov 0x2f0(%rdi),%rcx ; mov %rax,0x290(%rcx)   GameState->GameModeClass
+        //        call *0x718(%rax)                             ReceivedGameModeClass()
+        //        mov 0x2d0(%rbx),%rax ; mov %rax,0x2a0(%rcx)   GameState->SpectatorClass
+        //        jmp  *0x720(%rax)                             ReceivedSpectatorClass()
+        //   2) AGameModeBase::PreInitializeComponents (Funktionszeiger-Index 159,
+        //      0xa3c46d0) ruft es als letzten Schritt per "call *0x748(%rax)" auf
+        //      (0x748/8 = 233) -- genau wie in AGameModeBase::PreInitializeComponents.
+        //   3) APalGameMode ueberschreibt denselben Index (0x72061a0) und beginnt
+        //      mit "call 0xa3c4680" (Super::InitGameState) -- ein Hook auf die
+        //      Basisimplementierung feuert also auch fuer Palworlds GameMode.
+        //
+        // ACHTUNG: Der von RE-UE4SS' Linux-Port benutzte Offset 0x740 (Index 232)
+        // ist NICHT InitGameState, sondern AGameModeBase::InitGame(MapName, Options,
+        // ErrorMessage) -- die Funktion bei 0xa3c05d0 kopiert ihr drittes Argument
+        // in AGameModeBase::OptionsString (this+0x290).
+        static inline std::unordered_map<std::string, std::pair<std::string, int>> LinuxVTableSignatures {
+            { "AGameModeBase::InitGameState", { "_ZTV13AGameModeBase", 235 } },
+        };
+#endif
+
         static inline std::unordered_map<std::string, std::string> SignaturesCallResolve {
             // Don't ask, I know it's long..
             { "FFieldClass::GetNameToFieldClassMap", "E8 ?? ?? ?? ?? 41 B8 01 00 00 00 48 8D ?? ?? ?? ?? ?? 48 8D 4C 24 40 48 8B F8 E8 ?? ?? ?? ?? 48 8B 4C 24 40 48 8B D9 48 C1 EB 20 E8 ?? ?? ?? ?? 4C 8D 44 24 40 48 8B CF 8D 14 03 E8 ?? ?? ?? ?? 48 8D ?? ?? ?? ?? ?? 48 89 30 E8" },

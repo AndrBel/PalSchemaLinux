@@ -15,20 +15,20 @@ namespace Palworld {
         ~PalResourceLoader();
     protected:
         virtual void OnLoad(const std::filesystem::path& loaderPath, const RC::StringType& modName, const EEngineLifecyclePhase& engineLifecyclePhase) override final;
-        virtual void OnAutoReload(const std::filesystem::path::string_type& modName, const std::filesystem::path& modFilePath) override final;
+        virtual void OnAutoReload(const RC::StringType& modName, const std::filesystem::path& modFilePath) override final;
 
         virtual bool CanInitialize(const EEngineLifecyclePhase& engineLifecyclePhase) override final;
         virtual bool OnInitialize() override final;
     private:
-        void RegisterResourceAsset(const std::filesystem::path::string_type& modName, RC::Unreal::UObject* resource);
+        void RegisterResourceAsset(const RC::StringType& modName, RC::Unreal::UObject* resource);
         void UnregisterResourceAsset(RC::Unreal::UObject* resource);
-        void UnregisterResourceAssetByFilePath(const std::filesystem::path::string_type& modName, const std::filesystem::path& modFilePath);
-        void UnregisterResourceAssets(const std::filesystem::path::string_type& modName);
+        void UnregisterResourceAssetByFilePath(const RC::StringType& modName, const std::filesystem::path& modFilePath);
+        void UnregisterResourceAssets(const RC::StringType& modName);
         void UnregisterResourceAssets();
 
-        void LoadImages(const std::filesystem::path::string_type& modName, const std::filesystem::path& resourcesPath);
-        void LoadImage(const std::filesystem::path::string_type& modName, const std::filesystem::path& imagePath);
+        void LoadImages(const RC::StringType& modName, const std::filesystem::path& resourcesPath);
+        void LoadImage(const RC::StringType& modName, const std::filesystem::path& imagePath);
 
-        std::unordered_map<std::filesystem::path::string_type, std::vector<RC::Unreal::UObject*>> m_loadedResourcesMap;
+        std::unordered_map<RC::StringType, std::vector<RC::Unreal::UObject*>> m_loadedResourcesMap;
     };
 }

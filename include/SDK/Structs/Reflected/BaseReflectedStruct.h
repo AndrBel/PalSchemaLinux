@@ -60,7 +60,15 @@ namespace UECustom {
             T* returnValue = RC::Unreal::CastField<T>(property);
             if (!returnValue)
             {
+                #ifdef __linux__
+                // GetCPPType() ist unter Linux unbrauchbar: falscher vtable-Slot (Itanium-ABI
+                // hat zwei Destruktor-Slots) und der zurueckgegebene FString liegt im Heap
+                // des Spiels -> FMemory::Free ruft ::free() -> free(): invalid pointer.
+                // Der FFieldClass-Name ist nicht-virtuell erreichbar und genuegt hier.
+                throw std::runtime_error(RC::fmt("Property '%S' has the wrong type, expected '%S'.", propertyName.c_str(), property->GetClass().GetName().c_str()));
+                #else
                 throw std::runtime_error(RC::fmt("Property '%S' has the wrong type, expected '%S'.", propertyName.c_str(), *property->GetCPPType()));
+                #endif
             }
 
             return returnValue;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Utility/LinuxCompat.h"
 #include "Unreal/UObject.hpp"
 
 namespace UECustom {
